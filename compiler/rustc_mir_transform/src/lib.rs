@@ -84,6 +84,7 @@ mod match_branches;
 mod multiple_return_terminators;
 mod normalize_array_len;
 mod nrvo;
+mod outline;
 mod ref_prop;
 mod remove_noop_landing_pads;
 mod remove_storage_markers;
@@ -583,6 +584,7 @@ fn run_optimization_passes<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
             &add_call_guards::CriticalCallEdges,
             // Dump the end result for testing and debugging purposes.
             &dump_mir::Marker("PreCodegen"),
+            &outline::Outline,
         ],
         Some(MirPhase::Runtime(RuntimePhase::Optimized)),
     );

@@ -1,6 +1,6 @@
-// unit-test: InstSimplify
+// unit-test: Outline
 
-// EMIT_MIR outlining.foo.InstSimplify.diff
+// EMIT_MIR outlining.foo.Outline.diff
 fn foo(x: impl Into<Bar>) {
     let mut x: Bar = x.into();
 

@@ -1,5 +1,5 @@
-- // MIR for `foo` before InstSimplify
-+ // MIR for `foo` after InstSimplify
+- // MIR for `foo` before Outline
++ // MIR for `foo` after Outline
   
   fn foo(_1: impl Into<Bar>) -> () {
       debug x => _1;                       // in scope 0 at $DIR/outlining.rs:+0:8: +0:9
