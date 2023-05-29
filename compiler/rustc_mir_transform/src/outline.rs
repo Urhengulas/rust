@@ -1,56 +1,68 @@
-//! Normalizes MIR in RevealAll mode.
+//! Outline non-generic part of generic function
+//!
+//! ```
+//! // before
+//! fn outer<T: Into<U>>(t: T) {
+//!     let u: U = t.into();
+//!     u.v():
+//!     u.w();
+//! }
+//!
+//! // after
+//! fn outer<T: Into<U>>(t: T) {
+//!     fn inner(u: U) {
+//!         u.v();
+//!         u.w();
+//!     }
+//!     let u: U = t.into();
+//!     inner(u);
+//! }
+//! ```
+//!
+//! # Logic
+//!
+//! 1. Check assumptions about `fn outer`
+//!     1. Exactly one argument
+//!     2. Arguments type is a generic `Into<T>`
+//!     3. First line of function is `let u: U = t.into()`
+//! 2. Create `fn inner`
+//!     1. Create new function `fn inner(u: U)`
+//!     2. Configure type signature
+//!     3. Copy all code except first line from outer to inner
+//! 3. Modify `fn outer`
+//!     1. Remove all code except first line
+//!     2. Call inner
 
 use crate::MirPass;
-use rustc_middle::mir::visit::*;
-use rustc_middle::mir::*;
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::{mir::*, ty::TyCtxt};
 
 pub struct Outline;
 
 impl<'tcx> MirPass<'tcx> for Outline {
     fn is_enabled(&self, sess: &rustc_session::Session) -> bool {
-        sess.mir_opt_level() >= 3 || super::inline::Inline.is_enabled(sess)
+        sess.mir_opt_level() >= 3
     }
 
-    fn run_pass(&self, tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
-        // Do not apply this transformation to generators.
-        if body.generator.is_some() {
-            return;
-        }
+    fn run_pass(&self, _tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+        // OutlineGeneric { tcx }.visit_body_preserves_cfg(body);
 
-        let param_env = tcx.param_env_reveal_all_normalized(body.source.def_id());
-        RevealAllVisitor { tcx, param_env }.visit_body_preserves_cfg(body);
-    }
-}
+        let a = match body.basic_blocks_mut().iter_mut().nth(0) {
+            Some(a) => a,
+            None => return,
+        };
 
-struct RevealAllVisitor<'tcx> {
-    tcx: TyCtxt<'tcx>,
-    param_env: ty::ParamEnv<'tcx>,
-}
-
-impl<'tcx> MutVisitor<'tcx> for RevealAllVisitor<'tcx> {
-    #[inline]
-    fn tcx(&self) -> TyCtxt<'tcx> {
-        self.tcx
-    }
-
-    #[inline]
-    fn visit_constant(&mut self, constant: &mut Constant<'tcx>, _: Location) {
-        // We have to use `try_normalize_erasing_regions` here, since it's
-        // possible that we visit impossible-to-satisfy where clauses here,
-        // see #91745
-        if let Ok(c) = self.tcx.try_normalize_erasing_regions(self.param_env, constant.literal) {
-            constant.literal = c;
-        }
-    }
-
-    #[inline]
-    fn visit_ty(&mut self, ty: &mut Ty<'tcx>, _: TyContext) {
-        // We have to use `try_normalize_erasing_regions` here, since it's
-        // possible that we visit impossible-to-satisfy where clauses here,
-        // see #91745
-        if let Ok(t) = self.tcx.try_normalize_erasing_regions(self.param_env, *ty) {
-            *ty = t;
-        }
+        // dummy code just modify MIR somehow
+        a.statements.push(a.statements.get(0).unwrap().clone());
     }
 }
+
+// struct OutlineGeneric<'tcx> {
+//     tcx: TyCtxt<'tcx>,
+// }
+
+// impl<'tcx> MutVisitor<'tcx> for OutlineGeneric<'tcx> {
+//     #[inline]
+//     fn tcx(&self) -> TyCtxt<'tcx> {
+//         self.tcx
+//     }
+// }
